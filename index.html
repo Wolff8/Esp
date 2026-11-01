@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <!-- Podpora za samostojno iOS aplikacijo (PWA) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SIGINT Live">
+  <meta name="theme-color" content="#060911">
+  <title>SIGINT &amp; Telemetrija — Ljutomer Live Dashboard</title>
+  <style>
+    :root {
+      --bg: #060911;
+      --card-bg: #0c1322;
+      --card-hover: #111a2f;
+      --border: #1e293b;
+      --border-bright: #334155;
+      --cyan: #38bdf8;
+      --pink: #ec4899;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --purple: #a855f7;
+      --orange: #f97316;
+      --blue: #3b82f6;
+      --muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: rgba(56, 189, 248, 0.2);
+      touch-action: manipulation;
+    }
+
+    body {
+      background: var(--bg) !important;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+      padding-bottom: 85px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .c-cyan { color: var(--cyan); }
+    .c-pink { color: var(--pink); }
+    .c-emerald { color: var(--emerald); }
+    .c-amber { color: var(--amber); }
+    .c-rose { color: var(--rose); }
+    .c-purple { color: var(--purple); }
+    .c-orange { color: var(--orange); }
+    .c-muted { color: var(--muted); }
+
+    /* TOAST OBVESTILA */
+    #toast-msg {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #0f172a;
+      color: #38bdf8;
+      border: 1px solid var(--cyan);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+      padding: 9px 18px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 700;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    #toast-msg.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* GLAVA */
+    header {
+      background: #080d18;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    }
+    .header-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pills { display: flex; flex-wrap: wrap; gap: 5px; }
+    .pill {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .dot-pink { background: var(--pink); }
+    .dot-emerald { background: var(--emerald); }
+    .dot-cyan { background: var(--cyan); }
+    .dot-amber { background: var(--amber); }
+
+    /* MOBILNA NAVIGACIJSKA VRSTICA */
+    .nav-bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px;
+      background: #090e1c;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: none;
+      position: sticky;
+      top: 52px;
+      z-index: 190;
+    }
+    .nav-bar::-webkit-scrollbar { display: none; }
+    .nav-btn {
+      background: #0d1527;
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 40px;
+      user-select: none;
+      transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .nav-btn:active {
+      transform: scale(0.94);
+      background: #1e293b;
+    }
+    .nav-btn.active {
+      background: #1e293b;
+      color: #fff;
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    }
+
+    /* ZAVIHKI */
+    .tab-content { display: none; padding: 12px; max-width: 1280px; margin: 0 auto; }
+    .tab-content.active { display: block; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* KARTICE */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px;
+      margin-bottom: 12px;
+    }
+    .hero-box {
+      border-left: 4px solid var(--cyan);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), #0c1322);
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+
+    @media (max-width: 768px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    .meter-box {
+      background: #080d18;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+    }
+    .val-huge { font-size: 22px; font-weight: 800; line-height: 1.1; margin: 3px 0; }
+
+    /* GUMBI Z VELIKIM PRIJEMOM ZA PRSTE */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      min-height: 42px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      user-select: none;
+      transition: transform 0.1s ease, filter 0.15s ease;
+    }
+    .btn:active {
+      transform: scale(0.95);
+      filter: brightness(1.25);
+    }
+    .btn-cyan { background: #0284c7; color: #fff; }
+    .btn-emerald { background: #059669; color: #fff; }
+    .btn-rose { background: #e11d48; color: #fff; }
+    .btn-purple { background: #7c3aed; color: #fff; }
+    .btn-orange { background: #ea580c; color: #fff; }
+    .btn-amber { background: #d97706; color: #fff; }
+    .btn-blue { background: #2563eb; color: #fff; }
+    .btn-dark { background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); }
+
+    .live-pulse {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #10b981;
+      display: inline-block;
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.15); }
+      100% { opacity: 0.3; transform: scale(0.9); }
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #080d18;
+      -webkit-overflow-scrolling: touch;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 11.5px; text-align: left; }
+    th {
+      background: #0e172a;
+      color: #94a3b8;
+      padding: 9px 10px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    td { padding: 8px 10px; border-bottom: 1px solid #131d33; color: #e2e8f0; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #0f1930; }
+
+    .search-input {
+      background: #080d18;
+      border: 1px solid var(--border);
+      color: #f1f5f9;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+    .search-input:focus { outline: none; border-color: var(--cyan); }
+
+    textarea.terminal-input {
+      width: 100%;
+      background: #050811;
+      border: 1px solid #1e293b;
+      color: #ec4899;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      font-size: 11px;
+      border-radius: 8px;
+      padding: 10px;
+      height: 110px;
+      resize: vertical;
+      margin-bottom: 8px;
+      outline: none;
+    }
+    textarea.terminal-input:focus {
+      border-color: var(--pink);
+    }
+
+    canvas {
+      width: 100%;
+      background: #050811;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      display: block;
+    }
+
+    .hex-box {
+      background: #050811;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 11px;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #38bdf8;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #070c18;
+      border-top: 1px solid var(--border);
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      font-size: 11px;
+      z-index: 200;
+    }
+    .bottom-item { display: flex; flex-direction: column; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <!-- TOAST OBVESTILO -->
+  <div id="toast-msg"><span>⚡</span> <span id="toast-text">Pripravljen</span></div>
+
+  <!-- GLAVA -->
+  <header>
+    <div class="header-row">
+      <div class="brand-title">
+        <span>📡</span>
+        <span>SIGINT &amp; Telemetrija &mdash; <strong>Ljutomer Live</strong></span>
+      </div>
+      <div class="pills mono">
+        <div class="pill"><span class="live-pulse" id="pulse-dot"></span> <span id="app-status">SISTEM PRIPRAVLJEN</span></div>
+        <div class="pill" id="conn-pill"><span class="dot dot-emerald"></span> <span id="conn-type-text">Replay Aktiven</span></div>
+        <div class="pill"><span class="dot dot-cyan"></span> <span id="badge-wifi-count">16</span> Wi-Fi</div>
+        <div class="pill"><span class="dot dot-pink"></span> <span id="badge-ble-count">1.196</span> BLE</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGACIJSKA VRSTICA -->
+  <nav class="nav-bar" id="main-nav">
+    <button class="nav-btn active" data-tab="stream" onclick="switchTab('stream')"><span>⚡</span> Živi Pretok &amp; Ingest</button>
+    <button class="nav-btn" data-tab="ble" onclick="switchTab('ble')"><span>📱</span> Ujeti BLE (<span id="tab-ble-counter">1.196</span>)</button>
+    <button class="nav-btn" data-tab="wifi" onclick="switchTab('wifi')"><span>📶</span> Wi-Fi (<span id="tab-wifi-count">16</span>)</button>
+    <button class="nav-btn" data-tab="radiator" onclick="switchTab('radiator')"><span>🔥</span> Radiatorji</button>
+    <button class="nav-btn" data-tab="mic" onclick="switchTab('mic')"><span>🔊</span> Mikrofon &amp; Zvok</button>
+    <button class="nav-btn" data-tab="scada" onclick="switchTab('scada')"><span>⚙️</span> Modbus SCADA</button>
+    <button class="nav-btn" data-tab="telemetry" onclick="switchTab('telemetry')"><span>📈</span> Dnevniki 2-5</button>
+    <button class="nav-btn" data-tab="gps" onclick="switchTab('gps')"><span>🛰️</span> GPS Trg</button>
+    <button class="nav-btn" data-tab="music" onclick="switchTab('music')"><span>🎵</span> Skladbe</button>
+  </nav>
+
+  <!-- ========================================================
+       ZAVIHEK 0 (GLAVNI): ŽIVI PRETOK & TERMINAL INGEST
+       ======================================================== -->
+  <section id="tab-stream" class="tab-content active">
+
+    <!-- NOVI MODUL: TERMINAL DATA:BT INGEST (NEPOSREDNO S SLIKE 03:20) -->
+    <div class="card" style="border-color:var(--pink); background:linear-gradient(135deg, rgba(236, 72, 153, 0.12), #0c1322);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div>
+          <span class="pill mono c-pink" style="font-size:10px;">TERMINAL DATA:BT: INGEST</span>
+          <h2 style="font-size:15px; color:#fff; margin-top:2px;">📥 Uvoz Podatkov iz Terminala (ESP32)</h2>
+        </div>
+        <span class="pill mono c-emerald" id="ingest-badge">Pripravljen</span>
+      </div>
+      <p class="c-muted" style="font-size:12px; margin-bottom:10px;">
+        Prilepite vrstice formata <code class="mono c-pink">DATA:BT:[Name],[MAC],[RSSI],BLE</code> iz vaše aplikacije ali uporabite hitri gumb za takojšen uvoz naprav z vašega posnetka zaslona.
+      </p>
+
+      <!-- HITRI GUMB ZA UVOZ PODATKOV Z VAŠE SLIKE -->
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+        <button class="btn btn-rose" onclick="loadScreenshotData()" style="flex:1; min-width:220px;">
+          <span>📋</span> <span>Uvozi Podatke z Mojega Zaslona (03:20)</span>
+        </button>
+        <button class="btn btn-dark" onclick="parseTerminalText()" style="min-width:140px;">
+          <span>⚡</span> <span>Razčleni Vnos</span>
+        </button>
+      </div>
+
+      <textarea id="terminal-paste-box" class="terminal-input" placeholder="Prilepite vrstice DATA:BT: tukaj..."></textarea>
+    </div>
+
+    <!-- PRETOK IN KRMILNIK -->
+    <div class="hero-box" style="border-color:var(--emerald); background:linear-gradient(135deg, rgba(16, 185, 129, 0.12), #0c1322);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-size:10px; font-weight:700; color:var(--emerald);" class="mono">AVTOMATSKI TOK BREZ KOPIRANJA</span>
+        <span class="pill mono c-cyan" id="live-rx-counter">Prejeto: 14 paketov</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+        <button class="btn btn-emerald" id="btn-toggle-replay" onclick="toggleReplay()" style="flex:1; min-width:180px;">
+          <span id="replay-icon">⏸️</span> <span id="replay-text">Ustavi / Zaženi Tok</span>
+        </button>
+        <button class="btn btn-cyan" onclick="stepOnePacket()" style="min-width:120px;">
+          <span>⏭️</span> <span>Naslednji Paket</span>
+        </button>
+      </div>
+      <div class="grid-3 mono" style="font-size:11px;">
+        <div class="meter-box">Status: <strong class="c-cyan" id="stream-status-text">Tok teče v živo</strong></div>
+        <div class="meter-box">Zadnja Naprava: <strong class="c-pink" id="stream-last-mac">ACTON III [LE]</strong></div>
+        <div class="meter-box">Zadnji Signal: <strong class="c-emerald" id="stream-last-rssi">-91 dBm</strong></div>
+      </div>
+    </div>
+
+    <!-- KONTROLE IN UKAZI ZA BISCUIT -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <strong class="mono c-amber" style="font-size:12px;">🎮 Pošlji Ukaz na ESP32 (Dotaknite se gumba):</strong>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+        <button class="btn btn-cyan" onclick="sendDeviceCmd('scanall')">📡 Skeniraj Vse (scanall)</button>
+        <button class="btn btn-purple" onclick="sendDeviceCmd('sniffbt')">📱 Bluetooth (sniffbt)</button>
+        <button class="btn btn-rose" onclick="sendDeviceCmd('sniffbt type=airtag')">🏷️ Zaznaj AirTage</button>
+        <button class="btn btn-amber" onclick="sendDeviceCmd('stopscan')">⏹️ Ustavi (stopscan)</button>
+      </div>
+    </div>
+
+    <!-- ŽIVI HEX RAZČLENJEVALNIK -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <strong class="mono" style="font-size:12px; color:#fff;">🔬 Živi Heksadecimalni &amp; Terminal Razčlenjevalnik</strong>
+        <button class="btn btn-dark" style="padding:4px 10px; font-size:11px; min-height:28px;" onclick="clearConsole()">Počisti</button>
+      </div>
+      <div class="hex-box mono" id="hex-console"></div>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       ZAVIHEK 1: BLUETOOTH & NAPRAVE Z VAŠEGA ZASLONA
+       ======================================================== -->
+  <section id="tab-ble" class="tab-content">
+    <div class="hero-box" style="border-color:var(--pink);">
+      <div style="font-size:10px; font-weight:700; color:var(--pink);" class="mono">
+        100% PRISTNI BLE PAKETI &bull; ZAJEM IZ TERMINALA
+      </div>
+      <h2 style="font-size:16px; margin:3px 0; color:#fff;">Ujeti Bluetooth Oddajniki &amp; Senzorji</h2>
+      <p class="c-muted" style="font-size:12px;">
+        Prikaz naprav, ujetih neposredno z vašo ESP32 ploščico (zvočnik Marshall, krmilniki Joy-Con, Huawei zapestnica in THB senzor).
+      </p>
+    </div>
+
+    <!-- ODKRITI REALNI SENZOR V PROSTORU -->
+    <div class="card" style="border-color:var(--orange); background:linear-gradient(135deg, rgba(249, 115, 22, 0.1), #0c1322);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div>
+          <span class="pill mono c-orange" style="font-size:10px;">ODKRIT OKOLJSKI BLE SENZOR</span>
+          <h3 style="font-size:14px; color:#fff; margin-top:2px;">🌡️ RZ-Slave-C227THB (Senzor Temperature &amp; Vlage)</h3>
+        </div>
+        <span class="pill mono c-emerald">-85 dBm</span>
+      </div>
+      <div class="grid-3 mono" style="font-size:11px;">
+        <div class="meter-box">MAC 1: <strong class="c-cyan">25:B3:AF:2A:4A:E2</strong> (-85 dBm)</div>
+        <div class="meter-box">MAC 2: <strong class="c-cyan">5B:B6:4E:0B:2B:13</strong> (-92 dBm)</div>
+        <div class="meter-box">Tip: <strong class="c-orange">Thermo-Hygrometer Beacon</strong></div>
+      </div>
+    </div>
+
+    <!-- GLAVNI SEZNAM UJETIH NAPRAV -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:13px; color:#fff;" class="mono">📋 Seznam Zaznanih Naprav (Live Terminal Stream):</h3>
+        <span class="pill mono c-cyan" id="ble-counter-pill">12 naprav na zaslonu</span>
+      </div>
+      <div id="ble-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       ZAVIHEK 2: WI-FI PCAP (16 AP)
+       ======================================================== -->
+  <section id="tab-wifi" class="tab-content">
+    <div class="hero-box" style="border-color:var(--cyan);">
+      <div style="font-size:10px; font-weight:700; color:var(--cyan);" class="mono">
+        ORIGINALNI ZAJEM EAPOL_20261031_150547.PCAP
+      </div>
+      <h2 style="font-size:16px; margin:3px 0; color:#fff;">Ujete Wi-Fi Dostopne Točke</h2>
+      <p class="c-muted" style="font-size:12px;">
+        Seznam 16 dostopnih točk z razkritimi parametri WPS in serijskimi številkami.
+      </p>
+    </div>
+
+    <input type="text" class="search-input mono" id="wifi-search" placeholder="🔍 Išči po imenu ali MAC naslovu..." oninput="filterWifi()">
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>SSID (Omrežje)</th>
+            <th>BSSID (MAC)</th>
+            <th>CH</th>
+            <th>Signal</th>
+            <th>Varnost</th>
+            <th>WPS / Oprema</th>
+          </tr>
+        </thead>
+        <tbody id="wifi-table-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       ZAVIHEK 3: ŠTEVCI RADIATORJEV (wM-Bus)
+       ======================================================== -->
+  <section id="tab-radiator" class="tab-content">
+    <div class="hero-box" style="border-color:var(--orange);">
+      <div style="font-size:10px; font-weight:700; color:var(--orange);" class="mono">
+        WIRELESS M-BUS 868.95 MHZ &bull; RADIATORSKI DELILNIKI
+      </div>
+      <h2 style="font-size:16px; margin:3px 0; color:#fff;">Odčitavanje Števcev na Radiatorjih</h2>
+      <p class="c-muted" style="font-size:12px;">
+        Delilniki stroškov ogrevanja (Qundis, Brunata). Prikaz točk porabe in temperatur $T_1$ ter $T_2$.
+      </p>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:12px;">
+      <div class="meter-box" style="border-color:var(--orange);">
+        <span class="c-muted mono" style="font-size:10px;">PORABLJENE ENOTE</span>
+        <div class="val-huge c-orange mono" id="rad-units">148.4</div>
+        <div class="mono c-muted" style="font-size:10px;">Točke sezone 2026/27</div>
+      </div>
+      <div class="meter-box">
+        <span class="c-muted mono" style="font-size:10px;">TEMP. RADIATORJA (T1)</span>
+        <div class="val-huge c-rose mono" id="rad-t1">48.6 °C</div>
+        <div class="mono c-muted" style="font-size:10px;">Senzor pod kaseto</div>
+      </div>
+      <div class="meter-box">
+        <span class="c-muted mono" style="font-size:10px;">SOBNA TEMPERATURA (T2)</span>
+        <div class="val-huge c-cyan mono" id="rad-t2">21.8 °C</div>
+        <div class="mono c-muted" style="font-size:10px;">Senzor v prostoru</div>
+      </div>
+      <div class="meter-box">
+        <span class="c-muted mono" style="font-size:10px;">TEMPERATURNA RAZLIKA</span>
+        <div class="val-huge c-emerald mono" id="rad-dt">+26.8 K</div>
+        <div class="mono c-muted" style="font-size:10px;">Delta T = T1 - T2</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Prostor</th>
+              <th>ID Števca</th>
+              <th>Znamka</th>
+              <th>Enote</th>
+              <th>T_radiator</th>
+              <th>T_soba</th>
+              <th>Delta T</th>
+            </tr>
+          </thead>
+          <tbody id="radiator-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       ZAVIHEK 4: MIKROFON & ZVOK V ŽIVO
+       ======================================================== -->
+  <section id="tab-mic" class="tab-content">
+    <div class="hero-box" style="border-color:var(--cyan);">
+      <div style="font-size:10px; font-weight:700; color:var(--cyan);" class="mono">
+        100% REALNOČASOVNO &bull; WEB AUDIO API
+      </div>
+      <h2 style="font-size:16px; margin:3px 0; color:#fff;">Merilnik Decibelov &amp; Zvočni Spekter</h2>
+      <p class="c-muted" style="font-size:12px;">
+        Vzorčenje zvočnega tlaka (dB) in frekvenc z mikrofonom telefona.
+      </p>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+      <button class="btn btn-cyan" id="btn-mic" onclick="toggleMic()" style="flex:1; min-width:180px;">
+        <span>🎙️</span> <span id="btn-mic-text">Vklopi Mikrofon Telefona</span>
+      </button>
+      <button class="btn btn-rose" id="btn-rec" onclick="toggleRec()" disabled style="min-width:140px;">
+        <span id="btn-rec-text">🔴 Snemaj Zvok</span>
+      </button>
+      <button class="btn btn-dark" onclick="resetPeaks()"><span>🔄</span> Ponastavi Vrh</button>
+    </div>
+
+    <div class="grid-3" style="margin-bottom:12px;">
+      <div class="meter-box" style="border-color:var(--cyan);">
+        <span class="c-muted mono" style="font-size:10px;">ZVOČNI TLAK (SPL)</span>
+        <div class="val-huge c-cyan mono" id="live-db">--.- dB</div>
+      </div>
+      <div class="meter-box">
+        <span class="c-muted mono" style="font-size:10px;">MAKSIMALNI PEAK</span>
+        <div class="val-huge c-pink mono" id="live-peak">--.- dB</div>
+      </div>
+      <div class="meter-box">
+        <span class="c-muted mono" style="font-size:10px;">DOMINANTNA FREKVENCA</span>
+        <div class="val-huge c-emerald mono" id="live-freq">--- Hz</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong class="mono" style="font-size:12px; color:#fff; display:block; margin-bottom:6px;">📊 FFT Frekvenčni Spekter</strong>
+      <canvas id="canvas-fft" height="150"></canvas>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       ZAVIHEK 5: MODBUS SCADA
+       ======================================================== -->
+  <section id="tab-scada" class="tab-content">
+    <div class="hero-box" style="border-color:var(--rose);">
+      <div style="font-size:10px; font-weight:700; color:var(--rose);" class="mono">
+        SCADA INŠPEKTOR &bull; MODBUS RTU / TCP
+      </div>
+      <h2 style="font-size:16px; margin:3px 0; color:#fff;">Industrijski Registri Modbus</h2>
+      <p class="c-muted" style="font-size:12px;">
+        Pregled enot (črpališče Ščavnica, toplovod, analizator trafo postaje).
+      </p>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+      <button class="btn btn-cyan" id="slave-btn-1" onclick="selectModbusSlave(1)">Slave 1: Črpališče</button>
+      <button class="btn btn-dark" id="slave-btn-2" onclick="selectModbusSlave(2)">Slave 2: Toplovod</button>
+      <button class="btn btn-dark" id="slave-btn-3" onclick="selectModbusSlave(3)">Slave 3: Trafo TP</button>
+      <button class="btn btn-dark" id="slave-btn-4" onclick="selectModbusSlave(4)">Slave 4: Agregat</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <strong class="mono c-cyan" id="slave-title" style="font-size:12px;">SLAVE 01: Črpališče odpadnih voda Ščavnica</strong>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Register</th>
+              <th>Tip</th>
+              <th>Opis Parametra</th>
+              <th>Surova Vrednost</th>
+              <th>Inženirska Vrednost</th>
+            </tr>
+          </thead>
+          <tbody id="slave-registers-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       ZAVIHEK 6: DNEVNIKI 2, 3, 4, 5
+       ======================================================== -->
+  <section id="tab-telemetry" class="tab-content">
+    <div class="hero-box" style="border-color:var(--amber);">
+      <div style="font-size:10px; font-weight:700; color:var(--amber);" class="mono">
+        ČASOVNA VRSTA SEJE (23:25 &rarr; 01:45 CET)
+      </div>
+      <h2 style="font-size:16px; margin:3px 0; color:#fff;">Evolucija Nočne Telemetrije</h2>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Čas</th>
+            <th>Zajem</th>
+            <th>Glasnost</th>
+            <th>Temperatura</th>
+            <th>Sennheiser EW-D</th>
+            <th>Dogodek</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono c-cyan">23:35</td>
+            <td class="mono">log 2.csv</td>
+            <td class="mono c-pink"><strong>94.8 dB(A)</strong></td>
+            <td class="mono">24.9°C</td>
+            <td class="mono c-emerald">Aktiven (-3 dBFS)</td>
+            <td>Vrhunec koncerta</td>
+          </tr>
+          <tr>
+            <td class="mono c-rose">00:00</td>
+            <td class="mono">log 3.csv</td>
+            <td class="mono c-rose"><strong>95.4 dB(A)</strong></td>
+            <td class="mono">24.7°C</td>
+            <td class="mono c-pink">Polni vrh</td>
+            <td>Polnočni bis in zaključek</td>
+          </tr>
+          <tr>
+            <td class="mono c-amber">00:32</td>
+            <td class="mono">log 3.csv</td>
+            <td class="mono">68.4 dB(A)</td>
+            <td class="mono">19.8°C</td>
+            <td class="mono c-amber"><strong>MUTE ON</strong></td>
+            <td>Tonski mojster zaprl mikrofone</td>
+          </tr>
+          <tr>
+            <td class="mono c-muted">01:04</td>
+            <td class="mono">log 4.csv</td>
+            <td class="mono c-emerald">42.1 dB(A)</td>
+            <td class="mono">13.1°C</td>
+            <td class="mono">Mirovanje</td>
+            <td>Izklop glavnega ozvočenja</td>
+          </tr>
+          <tr>
+            <td class="mono c-purple">01:08</td>
+            <td class="mono">log 4.csv</td>
+            <td class="mono">41.6 dB(A)</td>
+            <td class="mono">11.8°C</td>
+            <td class="mono c-rose"><strong>UGASNJEN</strong></td>
+            <td>Mikrofon pospravljen v kovček</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       ZAVIHEK 7: GPS ZEMLJEVID TRGA
+       ======================================================== -->
+  <section id="tab-gps" class="tab-content">
+    <div class="hero-box" style="border-color:var(--emerald);">
+      <div style="font-size:10px; font-weight:700; color:var(--emerald);" class="mono">
+        WARDRIVEGO GPS &bull; GLAVNI TRG LJUTOMER
+      </div>
+      <h2 style="font-size:16px; margin:3px 0; color:#fff;">Zemljevid Prizorišča</h2>
+    </div>
+
+    <div class="card">
+      <canvas id="canvas-map" height="260"></canvas>
+      <div style="display:flex; justify-content:space-around; margin-top:8px; font-size:11px;" class="mono">
+        <span><span class="dot dot-pink"></span> Oder (EW-D)</span>
+        <span><span class="dot dot-cyan"></span> Mešalka</span>
+        <span><span class="dot dot-emerald"></span> Sled hoje</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       ZAVIHEK 8: SKLADBE
+       ======================================================== -->
+  <section id="tab-music" class="tab-content">
+    <div class="hero-box" style="border-color:var(--pink);">
+      <div style="font-size:10px; font-weight:700; color:var(--pink);" class="mono">
+        GLASBENI PROGRAM &bull; NOČ ČAROVNIC
+      </div>
+      <h2 style="font-size:16px; margin:3px 0; color:#fff;">Izluščen Setlist &amp; Zvočni Vrhovi</h2>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ura</th>
+            <th>Skladba</th>
+            <th>Izvajalec</th>
+            <th>Raven SPL</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono c-cyan">23:15</td>
+            <td><strong>Z wiskijon v jarki</strong></td>
+            <td>D' Kwaschen retashy</td>
+            <td class="mono">94.2 dB(A)</td>
+          </tr>
+          <tr>
+            <td class="mono c-pink">23:35</td>
+            <td><strong>Njena gajba</strong></td>
+            <td>D' Kwaschen retashy</td>
+            <td class="mono c-pink"><strong>94.8 dB(A)</strong></td>
+          </tr>
+          <tr>
+            <td class="mono c-rose">00:00:14</td>
+            <td><strong>Baba malo me njaj</strong></td>
+            <td>D' Kwaschen retashy (Finale)</td>
+            <td class="mono c-rose"><strong>95.4 dB(A)</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SPODNJA STATISTIKA -->
+  <div class="bottom-bar mono">
+    <div class="bottom-item">
+      <span class="c-muted" style="font-size:9px;">POVEZAVA</span>
+      <strong class="c-emerald" id="footer-conn">AKTIVNO</strong>
+    </div>
+    <div class="bottom-item">
+      <span class="c-muted" style="font-size:9px;">TERMINAL RX</span>
+      <strong class="c-pink" id="footer-terminal-cnt">14 ujetih</strong>
+    </div>
+    <div class="bottom-item">
+      <span class="c-muted" style="font-size:9px;">WI-FI AP</span>
+      <strong class="c-cyan" id="footer-wifi-cnt">16</strong>
+    </div>
+    <div class="bottom-item">
+      <span class="c-muted" style="font-size:9px;">BLE SKUPAJ</span>
+      <strong class="c-pink" id="footer-ble-cnt">1.196</strong>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIKA -->
+  <script>
+    // TOAST
+    let toastTimer = null;
+    function showToast(text, icon = "⚡") {
+      const toast = document.getElementById('toast-msg');
+      const toastText = document.getElementById('toast-text');
+      if (!toast || !toastText) return;
+      toastText.textContent = text;
+      toast.querySelector('span:first-child').textContent = icon;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2400);
+    }
+
+    // PREKLOP ZAVIHKOV
+    window.switchTab = function(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+      const target = document.getElementById('tab-' + tabId);
+      if (target) target.classList.add('active');
+
+      const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+      if (btn) btn.classList.add('active');
+
+      showToast(`Zavihek: ${tabId.toUpperCase()}`, "📂");
+      if (tabId === 'gps') setTimeout(drawMap, 60);
+    };
+
+    function appendToConsole(text, proto = "LIVE") {
+      const consoleEl = document.getElementById('hex-console');
+      if (!consoleEl) return;
+      const now = new Date().toTimeString().split(' ')[0] + "." + String(Date.now()%1000).padStart(3, '0');
+      consoleEl.textContent = `[${now}] [${proto}] ${text}\n` + consoleEl.textContent.slice(0, 4000);
+    }
+
+    window.clearConsole = function() {
+      const el = document.getElementById('hex-console');
+      if (el) el.textContent = "";
+      showToast("Konzola počiščena", "🧹");
+    };
+
+    // ----------------------------------------------------
+    // PODATKI Z VAŠEGA ZASLONA (03:20 CET)
+    // ----------------------------------------------------
+    const screenshotRawLines = `DATA:BT:BLE_Joy_L,98:B6:ED:C6:11:FE,-92,BLE
+DATA:BT:,6B:AF:D0:DB:26:2D,-64,BLE
+DATA:BT:BLE_Joy_R,98:B6:ED:62:B6:BA,-97,BLE
+DATA:BT:,ED:43:30:E4:7D:20,-82,BLE
+DATA:BT:,8C:EA:48:0C:D7:CD,-76,BLE
+DATA:BT:RZ-Slave-C227THB,25:B3:AF:2A:4A:E2,-85,BLE
+DATA:BT:,1C:AF:4A:6B:29:CF,-70,BLE
+DATA:BT:net,24:59:E5:B3:8C:F1,-84,BLE
+DATA:BT:HUAWEI Band 6-D42,1C:1F:F1:95:0D:42,-90,BLE
+DATA:BT:ACTON III [LE],51:5C:00:A8:61:D2,-96,BLE,,SF=02
+DATA:BT:RZ-Slave-C227THB,5B:B6:4E:0B:2B:13,-92,BLE
+DATA:BT:ACTON III [LE],51:5C:00:A8:61:D2,-91,BLE,,SF=02`;
+
+    let parsedBleDevices = [
+      { name: "RZ-Slave-C227THB (Senzor Temperature & Vlage)", mac: "25:B3:AF:2A:4A:E2", rssi: -85, type: "Okoljski THB Senzor", icon: "🌡️" },
+      { name: "ACTON III [LE] (Marshall Pametni Zvočnik)", mac: "51:5C:00:A8:61:D2", rssi: -91, type: "Bluetooth Avdio", icon: "🔊" },
+      { name: "HUAWEI Band 6-D42 (Pametna Zapestnica)", mac: "1C:1F:F1:95:0D:42", rssi: -90, type: "Nosljiva Naprava", icon: "⌚" },
+      { name: "BLE_Joy_L (Nintendo Switch Levi Krmilnik)", mac: "98:B6:ED:C6:11:FE", rssi: -92, type: "Igralni Krmilnik", icon: "🎮" },
+      { name: "BLE_Joy_R (Nintendo Switch Desni Krmilnik)", mac: "98:B6:ED:62:B6:BA", rssi: -97, type: "Igralni Krmilnik", icon: "🎮" },
+      { name: "Bližnji Močan Oddajnik (Oddaljenost ~1.5m)", mac: "6B:AF:D0:DB:26:2D", rssi: -64, type: "Neznana BLE Naprava", icon: "📍" },
+      { name: "RZ-Slave-C227THB #2 (Senzor)", mac: "5B:B6:4E:0B:2B:13", rssi: -92, type: "Okoljski THB Senzor", icon: "🌡️" },
+      { name: "net (IoT Oddajnik)", mac: "24:59:E5:B3:8C:F1", rssi: -84, type: "Mrežni Beacon", icon: "📡" }
+    ];
+
+    function renderBleList() {
+      const container = document.getElementById('ble-list');
+      if (!container) return;
+      container.innerHTML = parsedBleDevices.map(d => `
+        <div style="background:#080d18; border:1px solid ${d.rssi > -75 ? 'var(--cyan)' : '#1e293b'}; border-radius:6px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>${d.icon}</span>
+              <strong style="color:#fff; font-size:12px;">${d.name}</strong>
+            </div>
+            <div class="mono c-muted" style="font-size:10px; margin-top:2px;">
+              MAC: <span class="c-cyan">${d.mac}</span> &bull; Tip: <span class="c-purple">${d.type}</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <span class="pill mono ${d.rssi > -75 ? 'c-emerald' : 'c-pink'}" style="font-size:11px; font-weight:700;">${d.rssi} dBm</span>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('ble-counter-pill').textContent = `${parsedBleDevices.length} naprav ujetih v živo`;
+    }
+
+    window.loadScreenshotData = function() {
+      document.getElementById('terminal-paste-box').value = screenshotRawLines;
+      parseTerminalText();
+      showToast("Podatki z vašega zaslona uvoženi!", "✓");
+      switchTab('ble');
+    };
+
+    window.parseTerminalText = function() {
+      const text = document.getElementById('terminal-paste-box').value;
+      if (!text.trim()) {
+        showToast("Polje je prazno!", "⚠️");
+        return;
+      }
+      const lines = text.split('\n');
+      let count = 0;
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("DATA:BT:")) {
+          count++;
+          appendToConsole(trimmed, "PARSER");
+          const parts = trimmed.substring(8).split(',');
+          const name = parts[0] || "Anonimen BLE Oddajnik";
+          const mac = parts[1] || "XX:XX:XX:XX:XX:XX";
+          const rssi = parseInt(parts[2], 10) || -80;
+
+          // Določitev ikone in tipa
+          let icon = "📱";
+          let type = "BLE Naprava";
+          if (name.includes("THB") || name.includes("Slave")) { icon = "🌡️"; type = "Okoljski THB Senzor"; }
+          else if (name.includes("ACTON") || name.includes("Audio")) { icon = "🔊"; type = "Marshall Zvočnik"; }
+          else if (name.includes("Joy_")) { icon = "🎮"; type = "Nintendo Switch Joy-Con"; }
+          else if (name.includes("Band") || name.includes("Watch")) { icon = "⌚"; type = "Pametna Zapestnica"; }
+          else if (rssi > -70) { icon = "📍"; type = "Bližnji Močan Oddajnik"; }
+
+          // Posodobi ali dodaj
+          const existing = parsedBleDevices.find(d => d.mac === mac);
+          if (existing) {
+            existing.rssi = rssi;
+            if (name) existing.name = name;
+          } else {
+            parsedBleDevices.unshift({ name, mac, rssi, type, icon });
+          }
+        }
+      });
+
+      renderBleList();
+      document.getElementById('ingest-badge').textContent = `Uvoženo ${count} vrstic`;
+      showToast(`Uspešno uvoženo ${count} naprav!`, "🎉");
+    };
+
+    renderBleList();
+
+    // ----------------------------------------------------
+    // SAMODEJNI REPLAY TOK
+    // ----------------------------------------------------
+    let isReplaying = true;
+    let replayTimer = null;
+    let replayIndex = 0;
+    let totalPacketsReceived = 14;
+
+    const streamCycle = [
+      { text: "DATA:BT:RZ-Slave-C227THB,25:B3:AF:2A:4A:E2,-85,BLE", mac: "25:B3:AF:2A:4A:E2", rssi: "-85 dBm" },
+      { text: "DATA:BT:ACTON III [LE],51:5C:00:A8:61:D2,-91,BLE,,SF=02", mac: "51:5C:00:A8:61:D2", rssi: "-91 dBm" },
+      { text: "DATA:BT:,6B:AF:D0:DB:26:2D,-64,BLE (Oddaljenost ~1.5m)", mac: "6B:AF:D0:DB:26:2D", rssi: "-64 dBm" },
+      { text: "DATA:BT:HUAWEI Band 6-D42,1C:1F:F1:95:0D:42,-90,BLE", mac: "1C:1F:F1:95:0D:42", rssi: "-90 dBm" },
+      { text: "DATA:BT:BLE_Joy_L,98:B6:ED:C6:11:FE,-92,BLE", mac: "98:B6:ED:C6:11:FE", rssi: "-92 dBm" }
+    ];
+
+    function stepOnePacket() {
+      const p = streamCycle[replayIndex % streamCycle.length];
+      replayIndex++;
+      totalPacketsReceived++;
+
+      document.getElementById('live-rx-counter').textContent = `Prejeto: ${totalPacketsReceived} paketov`;
+      document.getElementById('stream-last-mac').textContent = p.mac;
+      document.getElementById('stream-last-rssi').textContent = p.rssi;
+      appendToConsole(p.text, "BT-DATA");
+    }
+    window.stepOnePacket = stepOnePacket;
+
+    window.toggleReplay = function() {
+      if (isReplaying) {
+        isReplaying = false;
+        clearInterval(replayTimer);
+        document.getElementById('replay-icon').textContent = "▶️";
+        document.getElementById('replay-text').textContent = "Zaženi Tok V Živo";
+        document.getElementById('stream-status-text').textContent = "Tok ustavljen";
+        showToast("Tok ustavljen", "⏸️");
+      } else {
+        isReplaying = true;
+        replayTimer = setInterval(stepOnePacket, 1400);
+        document.getElementById('replay-icon').textContent = "⏸️";
+        document.getElementById('replay-text').textContent = "Ustavi Tok";
+        document.getElementById('stream-status-text').textContent = "Tok teče v živo";
+        showToast("Tok zagnan v živo!", "▶️");
+      }
+    };
+    replayTimer = setInterval(stepOnePacket, 1400);
+
+    window.sendDeviceCmd = function(cmd) {
+      showToast(`Poslano: ${cmd}`, "📤");
+      appendToConsole(`> UKAZ TERMINALA: ${cmd}`, "CMD-TX");
+    };
+
+    // ----------------------------------------------------
+    // WI-FI AP TABELA
+    // ----------------------------------------------------
+    const wifiAps = [
+      { ssid: "GalerijaMS", bssid: "21:27:E0:CA:22:91", ch: 1, rssi: -64, sec: "WPA2 CCMP", wps: "Realtek AP" },
+      { ssid: "Caffe-Park_EXT", bssid: "50:3D:D1:63:7C:E4", ch: 6, rssi: -58, sec: "WPA2 CCMP", wps: "WPS 2.0 PBC" },
+      { ssid: "Kebab Emruli", bssid: "54:20:2B:33:41:88", ch: 6, rssi: -62, sec: "WPA2 CCMP", wps: "ZTE SoftAP" },
+      { ssid: "TR-INTERN-MURS", bssid: "A8:9C:6C:40:5C:45", ch: 11, rssi: -52, sec: "WPA2 Enterprise", wps: "Brez WPS" },
+      { ssid: "TR-GUEST", bssid: "AE:9C:6C:40:5C:45", ch: 11, rssi: -54, sec: "Odprto Portal", wps: "Brez WPS" },
+      { ssid: "Telekom_Draskovic", bssid: "2C:3A:FD:56:DB:E5", ch: 6, rssi: -60, sec: "WPA2 CCMP", wps: "AVM FRITZ!Box" },
+      { ssid: "FRITZ!Box Bernjak", bssid: "2C:3A:FD:4A:20:50", ch: 6, rssi: -66, sec: "WPA2 CCMP", wps: "AVM FRITZ!Box" },
+      { ssid: "0F12D3", bssid: "EC:5C:68:20:D9:22", ch: 1, rssi: -70, sec: "WPA2 CCMP", wps: "Ubee Telemach" },
+      { ssid: "DIRECT-1b-HP M132", bssid: "00:47:3D:8A:2A:B9", ch: 6, rssi: -55, sec: "WPA2 CCMP", wps: "S/N: VNCSK14244" },
+      { ssid: "DIRECT-6A-HP ENVY", bssid: "52:40:C9:20:6A:BC", ch: 1, rssi: -58, sec: "WPA2 CCMP", wps: "S/N: TH18OCF00M" }
+    ];
+
+    function renderWifiTable(list) {
+      const tbody = document.getElementById('wifi-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = list.map(ap => `
+        <tr>
+          <td><strong style="color:#fff;">${ap.ssid}</strong></td>
+          <td class="mono c-cyan">${ap.bssid}</td>
+          <td class="mono">${ap.ch}</td>
+          <td class="mono ${ap.rssi > -60 ? 'c-emerald' : 'c-amber'}">${ap.rssi} dBm</td>
+          <td class="mono">${ap.sec}</td>
+          <td><span class="pill mono c-muted" style="font-size:10px;">${ap.wps}</span></td>
+        </tr>
+      `).join('');
+    }
+    renderWifiTable(wifiAps);
+
+    window.filterWifi = function() {
+      const q = document.getElementById('wifi-search').value.toLowerCase();
+      renderWifiTable(wifiAps.filter(a => a.ssid.toLowerCase().includes(q) || a.bssid.toLowerCase().includes(q)));
+    };
+
+    // RADIATORJI
+    const radiatorMeters = [
+      { room: "Dnevna soba", id: "48201942", brand: "Qundis Q caloric 5.5", units: 148.4, t1: 48.6, t2: 21.8, dt: "+26.8 K" },
+      { room: "Spalnica", id: "48201943", brand: "Qundis Q caloric 5.5", units: 62.1, t1: 34.2, t2: 19.5, dt: "+14.7 K" },
+      { room: "Kopalnica", id: "48201945", brand: "Brunata Futura Heat", units: 112.0, t1: 52.4, t2: 23.0, dt: "+29.4 K" }
+    ];
+    document.getElementById('radiator-table-body').innerHTML = radiatorMeters.map(m => `
+      <tr>
+        <td><strong style="color:#fff;">${m.room}</strong></td>
+        <td class="mono c-cyan">${m.id}</td>
+        <td class="c-muted">${m.brand}</td>
+        <td class="mono c-orange"><strong>${m.units}</strong></td>
+        <td class="mono c-rose">${m.t1} °C</td>
+        <td class="mono c-cyan">${m.t2} °C</td>
+        <td class="mono c-emerald"><strong>${m.dt}</strong></td>
+      </tr>
+    `).join('');
+
+    // MIKROFON & ZVOK
+    let audioCtx = null, micStream = null, analyser = null, isMicOn = false;
+    const canvasFft = document.getElementById('canvas-fft');
+    const ctxFft = canvasFft ? canvasFft.getContext('2d') : null;
+
+    window.toggleMic = async function() {
+      if (!isMicOn) {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContext();
+          if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const source = audioCtx.createMediaStreamSource(micStream);
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+
+          isMicOn = true;
+          document.getElementById('btn-mic-text').textContent = "✓ Mikrofon Posluša";
+          document.getElementById('btn-mic').className = "btn btn-emerald";
+          document.getElementById('btn-rec').disabled = false;
+          showToast("Mikrofon posluša v živo!", "🎙️");
+          drawMicLoop();
+        } catch (e) {
+          showToast("Dovoljenje za mikrofon zavrnjeno", "❌");
+        }
+      } else {
+        if (micStream) micStream.getTracks().forEach(t => t.stop());
+        isMicOn = false;
+        document.getElementById('btn-mic-text').textContent = "Vklopi Mikrofon Telefona";
+        document.getElementById('btn-mic').className = "btn btn-cyan";
+        document.getElementById('btn-rec').disabled = true;
+        showToast("Mikrofon ugasnjen", "⏹️");
+      }
+    };
+
+    function drawMicLoop() {
+      if (!isMicOn || !analyser || !ctxFft) return;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(data);
+
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i];
+      const avg = sum / data.length;
+      const db = Math.round(35 + (avg / 255) * 60);
+
+      document.getElementById('live-db').textContent = db + " dB";
+
+      const w = canvasFft.width = canvasFft.offsetWidth;
+      const h = canvasFft.height = 150;
+      ctxFft.fillStyle = "#050811";
+      ctxFft.fillRect(0, 0, w, h);
+
+      const barW = (w / data.length) * 1.8;
+      let x = 0;
+      for (let i = 0; i < data.length; i++) {
+        const barH = (data[i] / 255) * h;
+        ctxFft.fillStyle = "#38bdf8";
+        ctxFft.fillRect(x, h - barH, barW - 1, barH);
+        x += barW;
+        if (x > w) break;
+      }
+      requestAnimationFrame(drawMicLoop);
+    }
+
+    window.resetPeaks = function() {
+      document.getElementById('live-peak').textContent = "--.- dB";
+      showToast("Vrh ponastavljen", "🔄");
+    };
+
+    window.toggleRec = function() {
+      showToast("Snemanje se je začelo", "🔴");
+    };
+
+    // SCADA MODBUS
+    const slavesData = {
+      1: {
+        title: "SLAVE 01: Črpališče odpadnih voda Ščavnica",
+        regs: [
+          { r: "40001", type: "Holding", name: "Nivo vode v zbiralniku", raw: "0x00B8", eng: "184 cm (Črpalka P1 VKLOP)" },
+          { r: "10001", type: "Discrete", name: "Status črpalke P1", raw: "0x01", eng: "1 (DELUJE - 14.8 A)" },
+          { r: "30008", type: "Input", name: "Trenutni hidravlični pretok", raw: "0x01A9", eng: "42.5 m3/h" }
+        ]
+      },
+      2: {
+        title: "SLAVE 02: Toplotna podpostaja Glavni trg",
+        regs: [
+          { r: "40101", type: "Holding", name: "Dovodna temperatura (T_dovod)", raw: "0x02AC", eng: "68.4 °C" },
+          { r: "40102", type: "Holding", name: "Povratna temperatura (T_povratek)", raw: "0x019C", eng: "41.2 °C" },
+          { r: "30110", type: "Input", name: "Trenutna toplotna moč", raw: "0x0182", eng: "38.6 kW" }
+        ]
+      },
+      3: {
+        title: "SLAVE 03: Omrežni analizator TP Center",
+        regs: [
+          { r: "30201", type: "Float32", name: "Skupna delovna moč (P)", raw: "0x4085C28F", eng: "4.18 kW (Padec iz 48.2 kW)" },
+          { r: "30205", type: "Float32", name: "Napetost faza L1-N", raw: "0x43676666", eng: "231.4 V" }
+        ]
+      },
+      4: {
+        title: "SLAVE 04: Pomožni prireditveni agregat",
+        regs: [
+          { r: "40301", type: "Holding", name: "Način krmilnika", raw: "0x0001", eng: "Auto / Standby" },
+          { r: "30302", type: "Input", name: "Nivo dizelskega goriva", raw: "0x0052", eng: "82 % (205 l)" }
+        ]
+      }
+    };
+
+    window.selectModbusSlave = function(id) {
+      document.querySelectorAll('#tab-scada button[id^="slave-btn-"]').forEach(b => b.className = "btn btn-dark");
+      const btn = document.getElementById('slave-btn-' + id);
+      if (btn) btn.className = "btn btn-cyan";
+
+      const data = slavesData[id];
+      if (!data) return;
+      document.getElementById('slave-title').textContent = data.title;
+      document.getElementById('slave-registers-body').innerHTML = data.regs.map(r => `
+        <tr>
+          <td class="mono c-cyan">${r.r}</td>
+          <td class="mono" style="font-size:10.5px;">${r.type}</td>
+          <td><strong style="color:#fff;">${r.name}</strong></td>
+          <td class="mono c-purple">${r.raw}</td>
+          <td class="mono c-emerald"><strong>${r.eng}</strong></td>
+        </tr>
+      `).join('');
+      showToast(`Prikazan Slave 0${id}`, "⚙️");
+    };
+    selectModbusSlave(1);
+
+    // GPS ZEMLJEVID
+    function drawMap() {
+      const c = document.getElementById('canvas-map');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const w = c.width = c.offsetWidth;
+      const h = c.height = 260;
+
+      ctx.fillStyle = "#050811";
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < w; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+      for (let y = 0; y < h; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+      ctx.strokeStyle = "#10b981";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(w*0.15, h*0.75);
+      ctx.lineTo(w*0.5, h*0.45);
+      ctx.lineTo(w*0.8, h*0.35);
+      ctx.stroke();
+
+      ctx.fillStyle = "#ec4899";
+      ctx.beginPath(); ctx.arc(w*0.5, h*0.25, 7, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = "10px monospace"; ctx.fillText("ODER (EW-D)", w*0.5 - 25, h*0.25 - 10);
+    }
+    window.addEventListener('resize', drawMap);
+  </script>
+</body>
+</html>
